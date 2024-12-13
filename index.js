@@ -85,40 +85,44 @@ async function run() {
     // Get all rooms from db
     app.get("/rooms", async (req, res) => {
       const category = req.query.category;
-      console.log("category", category);
+      // console.log("category", category);
 
       let query = {};
       if (category && category !== "null") query = { category };
 
       const result = await roomsCollection.find(query).toArray();
 
-      console.log(query, result);
+      // console.log(query, result);
+
+      res.send(result);
+    });
+    // Save a room data in db
+    app.post("/room", async (req, res) => {
+      const roomData = req.body;
+      const result = await roomsCollection.insertOne(roomData);
+      res.send(result);
+    });
+
+    // get all rooms for host
+
+    app.get("/my-listings/:email", async (req, res) => {
+      const email = req.params.email;
+      let query = { "host.email": email };
+      const result = await roomsCollection.find(query).toArray();
+
+      // console.log(query, result);
 
       res.send(result);
     });
 
-
-    // Save a room data in db 
-    app.post('/room' , async(req, res) =>{
-      const roomData = req.body
-      const result = await roomsCollection.insertOne(roomData)
-      res.send(result)
-    })
-
-
-
-
-
-
-
     // Get a single room data from db using _id
     app.get("/room/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
+      // console.log(id);
 
       const query = { _id: new ObjectId(id) };
       const result = await roomsCollection.findOne(query);
-      console.log(result);
+      // console.log(result);
 
       res.send(result);
     });
