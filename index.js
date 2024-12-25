@@ -3,7 +3,12 @@ const app = express();
 require("dotenv").config();
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const {
+  MongoClient,
+  ServerApiVersion,
+  ObjectId,
+  Timestamp,
+} = require("mongodb");
 const jwt = require("jsonwebtoken");
 
 const port = process.env.PORT || 8000;
@@ -51,6 +56,7 @@ async function run() {
   try {
     await client.connect().then((res) => console.log("databaseConnected"));
     const roomsCollection = client.db("stayvista").collection("rooms");
+    const usersCollection = client.db("stayvista").collection("users");
 
     // auth related api
     app.post("/jwt", async (req, res) => {
@@ -80,6 +86,22 @@ async function run() {
       } catch (err) {
         res.status(500).send(err);
       }
+    });
+
+    // save a user Data in db
+    app.put("/user", async (req, res) => {
+      const user = req.body;
+
+      const options = { upsert: true };
+      const query = { email: user?.email };
+      const updateDoc = {
+        $set: {
+          ...user,
+          timestamp: Date.now(),
+        },
+      };
+      const result = await usersCollection.updateOne(query, updateDoc, options);
+      res.send(result);
     });
 
     // Get all rooms from db
@@ -115,15 +137,13 @@ async function run() {
       res.send(result);
     });
 
-
-    // delete a room 
-    app.delete('/room/:id' , async (req,res) =>{
-      const id =req.params.id 
-      const query = {_id: new ObjectId(id)}
-      const result = await roomsCollection.deleteOne(query)
-      res.send(result)
-
-    })
+    // delete a room
+    app.delete("/room/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await roomsCollection.deleteOne(query);
+      res.send(result);
+    });
 
     // Get a single room data from db using _id
     app.get("/room/:id", async (req, res) => {
