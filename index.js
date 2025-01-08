@@ -58,6 +58,18 @@ async function run() {
     const roomsCollection = client.db("stayvista").collection("rooms");
     const usersCollection = client.db("stayvista").collection("users");
 
+    // Verify Admin middleware
+    const verifyAdmin = async (req, res, next) => {
+      console.log('hello');
+      
+      const user = req.user;
+      const query = { email: user?.email };
+      const result = await usersCollection.findOne(query)
+      if(!result || result?.role !== 'admin') return res.status(401).send({message: 'unauthorized access!!'})
+
+        next()
+    };
+
     // auth related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -97,13 +109,13 @@ async function run() {
       const isExist = await usersCollection.findOne(query);
       if (isExist) {
         if (user.status === "Requested") {
-          // if existing user try to change his role 
+          // if existing user try to change his role
           const result = await usersCollection.updateOne(query, {
             $set: { status: user?.status },
           });
-          return res.send(result)
+          return res.send(result);
         } else {
-          // if existing user login again 
+          // if existing user login again
           return res.send(isExist);
         }
       }
@@ -121,33 +133,30 @@ async function run() {
     });
 
     // get a user info by from db
-    app.get('/user/:email' ,async(req,res) =>{
-      const email =req.params.email
-      const result = await usersCollection.findOne({email})
-      res.send(result)
-    })
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email });
+      res.send(result);
+    });
 
     // get all users data from db
 
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken,verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
 
     //update a user role
-    app.patch('/users/update/:email',async(req,res) =>{
-      const email =req.params.email
-      const user = req.body
-      const query = {email}
-      const updateDoc ={
-        $set:{...user, timestamp:Date.now()},
-      }
-      const result = await usersCollection.updateOne(query,updateDoc)
-      res.send(result)
-    })
-
-
-
+    app.patch("/users/update/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+      const query = { email };
+      const updateDoc = {
+        $set: { ...user, timestamp: Date.now() },
+      };
+      const result = await usersCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
     // Get all rooms from db
     app.get("/rooms", async (req, res) => {
