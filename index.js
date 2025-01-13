@@ -10,6 +10,7 @@ const {
   Timestamp,
 } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const port = process.env.PORT || 8000;
 
@@ -60,27 +61,28 @@ async function run() {
 
     // Verify Admin middleware
     const verifyAdmin = async (req, res, next) => {
-      console.log('hello');
-      
+      console.log("hello");
+
       const user = req.user;
       const query = { email: user?.email };
-      const result = await usersCollection.findOne(query)
-      if(!result || result?.role !== 'admin') return res.status(401).send({message: 'unauthorized access!!'})
+      const result = await usersCollection.findOne(query);
+      if (!result || result?.role !== "admin")
+        return res.status(401).send({ message: "unauthorized access!!" });
 
-        next()
+      next();
     };
     // Verify host middleware
     const verifyHost = async (req, res, next) => {
-      console.log('hello');
-      
+      console.log("hello");
+
       const user = req.user;
       const query = { email: user?.email };
-      const result = await usersCollection.findOne(query)
-      if(!result || result?.role !== 'host') {
-        return res.status(401).send({message: 'unauthorized access!!'})
+      const result = await usersCollection.findOne(query);
+      if (!result || result?.role !== "host") {
+        return res.status(401).send({ message: "unauthorized access!!" });
       }
 
-        next()
+      next();
     };
 
     // auth related api
@@ -111,6 +113,29 @@ async function run() {
       } catch (err) {
         res.status(500).send(err);
       }
+    });
+
+    //create-payment-intent
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      const price = req.body.price
+      const priceIncent = parseFloat(price) * 100
+
+      if(!price || priceIncent <1) return
+
+      // generate clientSecrent
+      const {client_secret} = await stripe.paymentIntents.create({
+        amount: priceIncent,
+        currency: "usd",
+        // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      // send client secret as response
+      res.send({clientSecret:client_secret})
+
+
     });
 
     // save a user Data in db
@@ -154,7 +179,7 @@ async function run() {
 
     // get all users data from db
 
-    app.get("/users", verifyToken,verifyAdmin, async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
@@ -186,7 +211,7 @@ async function run() {
       res.send(result);
     });
     // Save a room data in db
-    app.post("/room",verifyToken,verifyHost, async (req, res) => {
+    app.post("/room", verifyToken, verifyHost, async (req, res) => {
       const roomData = req.body;
       const result = await roomsCollection.insertOne(roomData);
       res.send(result);
@@ -194,18 +219,23 @@ async function run() {
 
     // get all rooms for host
 
-    app.get("/my-listings/:email",verifyToken,verifyHost, async (req, res) => {
-      const email = req.params.email;
-      let query = { "host.email": email };
-      const result = await roomsCollection.find(query).toArray();
+    app.get(
+      "/my-listings/:email",
+      verifyToken,
+      verifyHost,
+      async (req, res) => {
+        const email = req.params.email;
+        let query = { "host.email": email };
+        const result = await roomsCollection.find(query).toArray();
 
-      // console.log(query, result);
+        // console.log(query, result);
 
-      res.send(result);
-    });
+        res.send(result);
+      }
+    );
 
     // delete a room
-    app.delete("/room/:id",verifyToken,verifyHost, async (req, res) => {
+    app.delete("/room/:id", verifyToken, verifyHost, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await roomsCollection.deleteOne(query);
