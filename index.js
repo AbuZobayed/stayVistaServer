@@ -55,9 +55,11 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+    const db = client.db("stayvista");
     await client.connect().then((res) => console.log("databaseConnected"));
-    const roomsCollection = client.db("stayvista").collection("rooms");
-    const usersCollection = client.db("stayvista").collection("users");
+    const roomsCollection = db.collection("rooms");
+    const usersCollection = db.collection("users");
+    const bookingsCollection = db.collection("bookings");
 
     // Verify Admin middleware
     const verifyAdmin = async (req, res, next) => {
@@ -117,13 +119,13 @@ async function run() {
 
     //create-payment-intent
     app.post("/create-payment-intent", verifyToken, async (req, res) => {
-      const price = req.body.price
-      const priceIncent = parseFloat(price) * 100
+      const price = req.body.price;
+      const priceIncent = parseFloat(price) * 100;
 
-      if(!price || priceIncent <1) return
+      if (!price || priceIncent < 1) return;
 
       // generate clientSecrent
-      const {client_secret} = await stripe.paymentIntents.create({
+      const { client_secret } = await stripe.paymentIntents.create({
         amount: priceIncent,
         currency: "usd",
         // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
@@ -133,9 +135,7 @@ async function run() {
       });
 
       // send client secret as response
-      res.send({clientSecret:client_secret})
-
-
+      res.send({ clientSecret: client_secret });
     });
 
     // save a user Data in db
@@ -210,6 +210,7 @@ async function run() {
 
       res.send(result);
     });
+
     // Save a room data in db
     app.post("/room", verifyToken, verifyHost, async (req, res) => {
       const roomData = req.body;
@@ -252,6 +253,26 @@ async function run() {
       // console.log(result);
 
       res.send(result);
+    });
+
+    // Save a bookings data in db
+    app.post("/booking", verifyToken, async (req, res) => {
+      const bookingData = req.body;
+
+      //  save room booking info
+      const result = await bookingsCollection.insertOne(bookingData);
+
+      // Change room availablity status
+      const roomId = bookingData?.roomId;
+      const query = { _id: new ObjectId(roomId) };
+      const updateDoc = {
+        $set: { booked: true },
+      };
+      const updateRoom = await roomsCollection.updateOne(query, updateDoc);
+
+      console.log(updateRoom);
+
+      res.send({ result, updateRoom });
     });
 
     // Send a ping to confirm a successful connection
