@@ -262,17 +262,54 @@ async function run() {
       //  save room booking info
       const result = await bookingsCollection.insertOne(bookingData);
 
+      // // Change room availablity status
+      // const roomId = bookingData?.roomId;
+      // const query = { _id: new ObjectId(roomId) };
+      // const updateDoc = {
+      //   $set: { booked: true },
+      // };
+      // const updateRoom = await roomsCollection.updateOne(query, updateDoc);
+
+      // console.log(updateRoom);
+
+      res.send(result);
+    });
+
+    // update Room Status
+    app.patch("/room/status/:id", async (req, res) => {
+      const id = req.params.id;
+      const status = req.body.status;
       // Change room availablity status
-      const roomId = bookingData?.roomId;
-      const query = { _id: new ObjectId(roomId) };
+      const query = { _id: new ObjectId(id) };
       const updateDoc = {
-        $set: { booked: true },
+        $set: { booked: status },
       };
-      const updateRoom = await roomsCollection.updateOne(query, updateDoc);
+      const result = await roomsCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
-      console.log(updateRoom);
+    // get all booking for a guest
+    app.get("/my-bookings/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { "guest.email": email };
+      const result = await bookingsCollection.find(query).toArray()
+      res.send(result);
+    });
 
-      res.send({ result, updateRoom });
+    // get all booking for a host
+    app.get("/manage-bookings/:email", verifyToken,verifyHost, async (req, res) => {
+      const email = req.params.email;
+      const query = { "host.email": email };
+      const result = await bookingsCollection.find(query).toArray()
+      res.send(result);
+    });
+
+    // delete a booking
+    app.delete("/booking/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await bookingsCollection.deleteOne(query);
+      res.send(result);
     });
 
     // Send a ping to confirm a successful connection
